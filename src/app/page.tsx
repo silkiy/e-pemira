@@ -1,69 +1,116 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const isConfigured =
+    supabaseUrl.length > 0 && !supabaseUrl.includes("your-project-id");
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col justify-center items-center p-6">
+      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900/80 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-8 md:p-10 space-y-8">
+        {/* Header */}
+        <div className="space-y-2 border-b border-zinc-200 dark:border-zinc-800 pb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            Next.js 16 + Supabase Ready
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            E-Pemira System
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
+            Sistem Pemilihan Raya berbasis Next.js App Router &amp; Supabase (PostgreSQL).
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Database Status Card */}
+        <div className="rounded-xl border p-5 bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Status Koneksi Supabase</span>
+            {isConfigured ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Terkonfigurasi
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Menunggu Kredensial di .env.local
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {isConfigured
+              ? `Terhubung ke: ${supabaseUrl}`
+              : "Masukkan URL & Publishable Key dari Dashboard Supabase ke file .env.local."}
+          </p>
         </div>
-      </main>
-    </div>
+
+        {/* Architecture Checklist */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            Standar Industri yang Telah Disiapkan:
+          </h2>
+          <ul className="text-sm space-y-2">
+            <li className="flex items-start gap-2.5">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>
+                <strong>Browser Client:</strong>{" "}
+                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                  @/lib/supabase/client
+                </code>{" "}
+                untuk Client Components (&quot;use client&quot;).
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>
+                <strong>Server Client:</strong>{" "}
+                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                  @/lib/supabase/server
+                </code>{" "}
+                untuk Server Actions &amp; RSC dengan cookie aman.
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>
+                <strong>Proxy Middleware (Next.js 16):</strong>{" "}
+                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                  src/proxy.ts
+                </code>{" "}
+                untuk auto refresh token auth di setiap request.
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>
+                <strong>Type Generation Script:</strong> Jalankan{" "}
+                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                  pnpm db:types
+                </code>{" "}
+                untuk sync schema PostgreSQL langsung ke TypeScript.
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Quick Links */}
+        <div className="pt-2 flex flex-wrap gap-3">
+          <Link
+            href="https://supabase.com/docs"
+            target="_blank"
+            className="text-xs font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 underline underline-offset-4"
+          >
+            Dokumentasi Supabase →
+          </Link>
+          <Link
+            href="https://nextjs.org/docs"
+            target="_blank"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-4"
+          >
+            Dokumentasi Next.js →
+          </Link>
+        </div>
+      </div>
+    </main>
   );
 }
