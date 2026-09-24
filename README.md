@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# E-Pemira 🗳️
 
-## Getting Started
+Sistem Pemilihan Raya (E-Voting) berbasis web modern yang dibangun menggunakan **Next.js 16 App Router**, **React 19**, **Tailwind CSS v4**, dan **Supabase**.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🚀 Tech Stack
+
+- **Framework:** [Next.js 16](https://nextjs.org/) (App Router, Turbopack)
+- **UI Library:** [React 19](https://react.dev/)
+- **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Backend & Database:** [Supabase](https://supabase.com/) (`@supabase/ssr` & PostgreSQL)
+- **Package Manager:** [pnpm](https://pnpm.io/)
+
+---
+
+## 📁 Struktur Direktori
+
+Project ini menggunakan arsitektur **Fullstack Monolith** di mana frontend dan backend berada dalam satu codebase:
+
+```text
+e-pemira/
+├── public/                 # Static assets (gambar, favicon, logo)
+├── src/
+│   ├── actions/            # [BACKEND] Server Actions ("use server" mutations)
+│   │   └── auth-actions.ts # Contoh Server Action autentikasi
+│   ├── app/                # [FRONTEND & ROUTING] Next.js App Router
+│   │   ├── favicon.ico
+│   │   ├── globals.css     # Konfigurasi Tailwind CSS
+│   │   ├── layout.tsx      # Root Layout
+│   │   └── page.tsx        # Halaman Beranda (Landing Page)
+│   ├── components/         # [FRONTEND] Reusable UI Components
+│   ├── lib/
+│   │   └── supabase/       # [BACKEND/CLIENT] Supabase Client Configuration
+│   │       ├── client.ts   # Browser client untuk Client Components ("use client")
+│   │       ├── server.ts   # Server client untuk Server Components & Actions
+│   │       └── proxy.ts    # Helper session token refresh
+│   ├── proxy.ts            # Proxy Middleware Next.js 16 (Token refresh & auth guard)
+│   └── types/              # Definisi TypeScript
+│       └── database.types.ts # Schema kontrak database Supabase
+├── .env.example            # Template variabel environment
+├── .env.local              # Kredensial lokal (di-ignore oleh git)
+├── package.json
+├── pnpm-lock.yaml
+└── tsconfig.json
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Panduan Memulai (Getting Started)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. Prasyarat
+- **Node.js:** Versi >= 20.x
+- **pnpm:** Versi >= 9.x atau 10.x (disarankan)
 
-## Learn More
+### 2. Instalasi Dependensi
+Clone repository ini, lalu jalankan:
+```bash
+pnpm install
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Konfigurasi Environment Variables
+Duplikasi file `.env.example` menjadi `.env.local`:
+```bash
+cp .env.example .env.local
+```
+Isi nilai variabel dengan kredensial Supabase project:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Menjalankan Server Development
+```bash
+pnpm dev
+```
+Buka browser di [http://localhost:3000](http://localhost:3000).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📜 Perintah yang Tersedia (Scripts)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Perintah | Deskripsi |
+| :--- | :--- |
+| `pnpm dev` | Menjalankan development server dengan Turbopack |
+| `pnpm build` | Membangun bundle produksi teroptimasi |
+| `pnpm start` | Menjalankan server dalam mode produksi |
+| `pnpm lint` | Memeriksa kualitas kode dengan ESLint |
+| `pnpm db:types` | Meng-generate TypeScript types dari schema tabel Supabase |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🤝 Panduan Kolaborasi Tim
+
+### Untuk Pengembang Frontend:
+1. Buat halaman baru di dalam folder `src/app/` (contoh: `src/app/voting/page.tsx`, `src/app/kandidat/page.tsx`).
+2. Komponen UI reusable diletakkan di `src/components/`.
+3. Styling sepenuhnya didukung oleh utility classes **Tailwind CSS**.
+4. Jika butuh data interaktif di browser, gunakan Client Component (`"use client"`) dan panggil Supabase via `@/lib/supabase/client`.
+
+### Untuk Pengembang Backend:
+1. Logika manipulasi data, validasi, dan transaksi database diletakkan di `src/actions/` menggunakan **Server Actions** (`"use server"`).
+2. Panggil Supabase di server menggunakan `@/lib/supabase/server`.
+3. Proteksi route / halaman dilayani di [src/proxy.ts](file:///D:/project/e-pemira/src/proxy.ts).
+4. Setelah update schema tabel di Supabase Dashboard, perbarui file type dengan menjalankan `pnpm db:types`.
