@@ -10,7 +10,10 @@ interface VotingModalProps {
   userSession: UserSession | null;
   candidates: Candidate[];
   settings: PemiraSettings;
-  onVoteCast: (kahimaId?: string, komtingId?: string) => void;
+  onVoteCast: (
+    kahimaId?: string,
+    komtingId?: string
+  ) => Promise<{ success: boolean; message?: string }> | void;
 }
 
 export const VotingModal: React.FC<VotingModalProps> = ({
@@ -30,6 +33,8 @@ export const VotingModal: React.FC<VotingModalProps> = ({
   const [selectedKomtingId, setSelectedKomtingId] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voteError, setVoteError] = useState('');
 
   if (!isOpen) return null;
 
@@ -40,15 +45,28 @@ export const VotingModal: React.FC<VotingModalProps> = ({
   const isCurrentScopeOpen =
     activeScope === 'kahima' ? settings.isKahimaVotingOpen : settings.isKomtingVotingOpen;
 
-  const handleFinalSubmit = () => {
-    onVoteCast(selectedKahimaId || undefined, selectedKomtingId || undefined);
-    setIsConfirming(false);
-    setIsSuccess(true);
+  const handleFinalSubmit = async () => {
+    setIsSubmitting(true);
+    setVoteError('');
+    try {
+      const res = await onVoteCast(selectedKahimaId || undefined, selectedKomtingId || undefined);
+      if (res && !res.success) {
+        setVoteError(res.message || 'Gagal mengirim suara.');
+        return;
+      }
+      setIsConfirming(false);
+      setIsSuccess(true);
+    } catch (e: unknown) {
+      setVoteError(e instanceof Error ? e.message : 'Gagal mengirim suara.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCloseAll = () => {
     setIsSuccess(false);
     setIsConfirming(false);
+    setVoteError('');
     onClose();
   };
 
@@ -127,15 +145,21 @@ export const VotingModal: React.FC<VotingModalProps> = ({
               <p className="text-xs sm:text-sm font-semibold text-gray-600 leading-relaxed max-w-md mx-auto">
                 Periksa kembali kandidat yang telah Anda pilih sebelum mengirim suara. Setelah suara dikirim, pilihan tidak dapat diubah kembali.
               </p>
+              {voteError && (
+                <div className="p-3 bg-red-100 border border-red-300 rounded-xl text-xs font-bold text-red-700 text-left mt-2">
+                  ⚠️ {voteError}
+                </div>
+              )}
             </div>
 
             {/* Bottom Right Action Bar */}
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleFinalSubmit}
-                className="px-8 py-3 rounded-full bg-[#800020] hover:bg-[#5F0018] text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
+                disabled={isSubmitting}
+                className="px-8 py-3 rounded-full bg-[#800020] hover:bg-[#5F0018] disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
               >
-                PILIH KANDIDAT
+                {isSubmitting ? 'MEMPROSES SUARA...' : 'PILIH KANDIDAT'}
               </button>
             </div>
           </div>

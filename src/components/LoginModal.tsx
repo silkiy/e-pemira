@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { UserSession } from '@/types/pemira';
 import { X, User, Lock, KeyRound, ShieldCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
+import { loginWithNim } from '@/lib/supabase/api';
+
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,7 +21,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -30,38 +32,26 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-
-      if (nim === 'admin' || nim === '9999999999') {
-        onLoginSuccess({
-          nim: '9999999999',
-          name: 'Panitia Pemira (Admin)',
-          role: 'admin',
-          angkatan: '2024',
-          hasVotedKahima: false,
-          hasVotedKomting: false,
-        });
-        onClose();
+    try {
+      const { session, error } = await loginWithNim(nim, password);
+      if (error || !session) {
+        setErrorMsg(error || 'Login gagal. Periksa NIM & Password.');
         return;
       }
 
-      // Standard Student Demo Session
-      onLoginSuccess({
-        nim: nim,
-        name: `Mahasiswa SISFOR (${nim.slice(-4)})`,
-        role: 'student',
-        angkatan: '2024',
-        hasVotedKahima: false,
-        hasVotedKomting: false,
-      });
+      onLoginSuccess(session);
       onClose();
-    }, 800);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat login.';
+      setErrorMsg(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickDemoStudent = () => {
     setNim('3012110045');
-    setPassword('PEMIRA-2026-XYZ');
+    setPassword('3012110045');
   };
 
   const handleQuickDemoAdmin = () => {
@@ -149,6 +139,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
             )}
           </button>
 
+          <div className="pt-2 border-t border-gray-100 space-y-2">
+            <p className="text-[11px] text-gray-500 font-semibold text-center">Akun Percobaan (Supabase DB):</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleQuickDemoStudent}
+                className="flex-1 py-2 px-3 text-[11px] font-bold rounded-lg border border-[#F7D4D9] bg-[#FFF0F2] text-[#800020] hover:bg-[#FCE8EB] transition-colors"
+              >
+                Mahasiswa (3012110045)
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickDemoAdmin}
+                className="flex-1 py-2 px-3 text-[11px] font-bold rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Admin Panitia
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>

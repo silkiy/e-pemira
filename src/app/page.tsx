@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
 import { TimelineSection } from '@/components/TimelineSection';
@@ -14,6 +14,24 @@ import { VotingModal } from '@/components/VotingModal';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import { Candidate, PemiraSettings, UserSession, TimelineStep, HistoryLeader, GalleryItem } from '@/types/pemira';
 import { INITIAL_CANDIDATES, INITIAL_SETTINGS, TIMELINE_DATA, HISTORY_LEADERS, GALLERY_DATA } from '@/lib/data';
+import { createClient } from '@/lib/supabase/client';
+import {
+  fetchPemiraData,
+  fetchLiveVoteCounts,
+  getCurrentUserSession,
+  logoutUser,
+  submitVote,
+  toggleKahimaVotingInDb,
+  toggleKomtingVotingInDb,
+  insertCandidateDb,
+  deleteCandidateDb,
+  saveTimelineStepDb,
+  deleteTimelineStepDb,
+  insertHistoryLeaderDb,
+  deleteHistoryLeaderDb,
+  insertGalleryItemDb,
+  deleteGalleryItemDb,
+} from '@/lib/supabase/api';
 
 export default function Home() {
   const [userSession, setUserSession] = useState<UserSession | null>(null);
@@ -27,6 +45,82 @@ export default function Home() {
   const [historyLeaders, setHistoryLeaders] = useState<HistoryLeader[]>(HISTORY_LEADERS);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(GALLERY_DATA);
 
+  // Load real data from Supabase on mount & check active session
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      try {
+        const [data, session] = await Promise.all([
+          fetchPemiraData(),
+          getCurrentUserSession(),
+        ]);
+        if (!isMounted) return;
+
+        setCandidates(data.candidates);
+        setSettings(data.settings);
+        setTimelineSteps(data.timelineSteps);
+        setHistoryLeaders(data.historyLeaders);
+        setGalleryItems(data.galleryItems);
+
+        if (session) {
+          setUserSession(session);
+          if (session.role === 'admin') {
+            setIsAdminMode(true);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load initial Pemira data:', err);
+      }
+    }
+
+    loadData();
+
+    // Supabase Realtime Channel
+    const supabase = createClient();
+    const channel = supabase
+      .channel('pemira-db-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ballots' },
+        async () => {
+          const liveCounts = await fetchLiveVoteCounts();
+          if (!isMounted) return;
+          setCandidates((prev) =>
+            prev.map((c) => ({
+              ...c,
+              totalVotes: liveCounts[c.id] ?? c.totalVotes,
+            }))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pemira_settings' },
+        async () => {
+          const { data: updated } = await supabase
+            .from('pemira_settings')
+            .select('*')
+            .eq('id', 1)
+            .maybeSingle();
+          if (!isMounted || !updated) return;
+          setSettings((prev) => ({
+            ...prev,
+            isKahimaVotingOpen: updated.is_kahima_voting_open,
+            isKomtingVotingOpen: updated.is_komting_voting_open,
+            activePeriod: updated.active_period,
+            totalVoters: updated.total_voters,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Auth Handlers
   const handleLoginSuccess = (session: UserSession) => {
     setUserSession(session);
@@ -35,7 +129,8 @@ export default function Home() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser();
     setUserSession(null);
     setIsAdminMode(false);
   };
@@ -49,16 +144,12 @@ export default function Home() {
     setIsVotingModalOpen(true);
   };
 
-  // Voting Vote Action Handler
-  const handleVoteCast = (kahimaId?: string, komtingId?: string) => {
-    setCandidates((prevCandidates) =>
-      prevCandidates.map((c) => {
-        if (c.id === kahimaId || c.id === komtingId) {
-          return { ...c, totalVotes: c.totalVotes + 1 };
-        }
-        return c;
-      })
-    );
+  // Voting Vote Action Handler (with Supabase cast_vote RPC)
+  const handleVoteCast = async (kahimaId?: string, komtingId?: string) => {
+    const res = await submitVote(kahimaId, komtingId);
+    if (!res.success) {
+      return { success: false, message: res.message };
+    }
 
     if (userSession) {
       setUserSession({
@@ -70,63 +161,91 @@ export default function Home() {
       });
     }
 
-    // Increment settings
-    setSettings((prev) => ({
-      ...prev,
-      suaraMasukPercentage: Math.min(100, Number((prev.suaraMasukPercentage + 0.4).toFixed(1))),
-    }));
+    // Refresh live counts immediately
+    const liveCounts = await fetchLiveVoteCounts();
+    setCandidates((prevCandidates) =>
+      prevCandidates.map((c) => {
+        const freshVotes = liveCounts[c.id];
+        if (freshVotes !== undefined) {
+          return { ...c, totalVotes: freshVotes };
+        }
+        if (c.id === kahimaId || c.id === komtingId) {
+          return { ...c, totalVotes: c.totalVotes + 1 };
+        }
+        return c;
+      })
+    );
+
+    return { success: true };
   };
 
   // Admin Actions for Independent Voting Sessions
-  const handleToggleKahimaVoting = () => {
-    setSettings((prev) => ({ ...prev, isKahimaVotingOpen: !prev.isKahimaVotingOpen }));
+  const handleToggleKahimaVoting = async () => {
+    const nextVal = !settings.isKahimaVotingOpen;
+    setSettings((prev) => ({ ...prev, isKahimaVotingOpen: nextVal }));
+    await toggleKahimaVotingInDb(nextVal);
   };
 
-  const handleToggleKomtingVoting = () => {
-    setSettings((prev) => ({ ...prev, isKomtingVotingOpen: !prev.isKomtingVotingOpen }));
+  const handleToggleKomtingVoting = async () => {
+    const nextVal = !settings.isKomtingVotingOpen;
+    setSettings((prev) => ({ ...prev, isKomtingVotingOpen: nextVal }));
+    await toggleKomtingVotingInDb(nextVal);
   };
 
-  const handleAddCandidate = (newCand: Candidate) => {
-    setCandidates((prev) => [...prev, newCand]);
+  const handleAddCandidate = async (newCand: Candidate) => {
+    const res = await insertCandidateDb(newCand);
+    if (res.candidate) {
+      setCandidates((prev) => [...prev, res.candidate!]);
+    } else {
+      setCandidates((prev) => [...prev, newCand]);
+    }
   };
 
-  const handleDeleteCandidate = (id: string) => {
+  const handleDeleteCandidate = async (id: string) => {
     setCandidates((prev) => prev.filter((c) => c.id !== id));
+    await deleteCandidateDb(id);
   };
 
   // Admin Actions for Timeline Steps
-  const handleAddTimelineStep = (newStep: TimelineStep) => {
+  const handleAddTimelineStep = async (newStep: TimelineStep) => {
     setTimelineSteps((prev) =>
       [...prev, newStep].sort((a, b) => a.stepNumber - b.stepNumber)
     );
+    await saveTimelineStepDb(newStep);
   };
 
-  const handleUpdateTimelineStep = (updatedStep: TimelineStep) => {
+  const handleUpdateTimelineStep = async (updatedStep: TimelineStep) => {
     setTimelineSteps((prev) =>
       prev.map((step) => (step.stepNumber === updatedStep.stepNumber ? updatedStep : step))
     );
+    await saveTimelineStepDb(updatedStep);
   };
 
-  const handleDeleteTimelineStep = (stepNumber: number) => {
+  const handleDeleteTimelineStep = async (stepNumber: number) => {
     setTimelineSteps((prev) => prev.filter((step) => step.stepNumber !== stepNumber));
+    await deleteTimelineStepDb(stepNumber);
   };
 
   // Admin Actions for History Leaders
-  const handleAddHistoryLeader = (newLeader: HistoryLeader) => {
+  const handleAddHistoryLeader = async (newLeader: HistoryLeader) => {
     setHistoryLeaders((prev) => [newLeader, ...prev]);
+    await insertHistoryLeaderDb(newLeader);
   };
 
-  const handleDeleteHistoryLeader = (id: string) => {
+  const handleDeleteHistoryLeader = async (id: string) => {
     setHistoryLeaders((prev) => prev.filter((h) => h.id !== id));
+    await deleteHistoryLeaderDb(id);
   };
 
   // Admin Actions for Gallery Items
-  const handleAddGalleryItem = (newItem: GalleryItem) => {
+  const handleAddGalleryItem = async (newItem: GalleryItem) => {
     setGalleryItems((prev) => [newItem, ...prev]);
+    await insertGalleryItemDb(newItem);
   };
 
-  const handleDeleteGalleryItem = (id: string) => {
+  const handleDeleteGalleryItem = async (id: string) => {
     setGalleryItems((prev) => prev.filter((g) => g.id !== id));
+    await deleteGalleryItemDb(id);
   };
 
   return (
