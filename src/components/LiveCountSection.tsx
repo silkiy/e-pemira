@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Candidate, CandidateCategory, PemiraSettings } from '@/types/pemira';
-import { ArrowRight, X, CheckCircle2, Sparkles, Vote, Radio, PieChart } from 'lucide-react';
+import { ArrowRight, X, CheckCircle2, Sparkles, Vote } from 'lucide-react';
 
 interface LiveCountSectionProps {
   candidates: Candidate[];
@@ -17,17 +17,11 @@ export const LiveCountSection: React.FC<LiveCountSectionProps> = ({
 }) => {
   const [selectedCandidateDetail, setSelectedCandidateDetail] = useState<Candidate | null>(null);
 
-  // Initial category view based on currently active voting session
-  const [activeCategory, setActiveCategory] = useState<CandidateCategory>('kahima');
-
   // Sync category view based on current voting settings
-  useEffect(() => {
-    if (settings.isKahimaVotingOpen && !settings.isKomtingVotingOpen) {
-      setActiveCategory('kahima');
-    } else if (settings.isKomtingVotingOpen && !settings.isKahimaVotingOpen) {
-      setActiveCategory('komting');
-    }
-  }, [settings.isKahimaVotingOpen, settings.isKomtingVotingOpen]);
+  const activeCategory: CandidateCategory =
+    settings.isKomtingVotingOpen && !settings.isKahimaVotingOpen
+      ? 'komting'
+      : 'kahima';
 
   const activeCandidates = candidates.filter((c) => c.category === activeCategory);
 
