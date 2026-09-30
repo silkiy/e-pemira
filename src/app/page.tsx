@@ -1,116 +1,203 @@
-import Link from "next/link";
+'use client';
+
+import React, { useState } from 'react';
+import { Header } from '@/components/Header';
+import { HeroSection } from '@/components/HeroSection';
+import { TimelineSection } from '@/components/TimelineSection';
+import { VotingGuideSection } from '@/components/VotingGuideSection';
+import { HistorySection } from '@/components/HistorySection';
+import { GallerySection } from '@/components/GallerySection';
+import { LiveCountSection } from '@/components/LiveCountSection';
+import { Footer } from '@/components/Footer';
+import { LoginModal } from '@/components/LoginModal';
+import { VotingModal } from '@/components/VotingModal';
+import { AdminDashboard } from '@/components/AdminDashboard';
+import { Candidate, PemiraSettings, UserSession, TimelineStep, HistoryLeader, GalleryItem } from '@/types/pemira';
+import { INITIAL_CANDIDATES, INITIAL_SETTINGS, TIMELINE_DATA, HISTORY_LEADERS, GALLERY_DATA } from '@/lib/data';
 
 export default function Home() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const isConfigured =
-    supabaseUrl.length > 0 && !supabaseUrl.includes("your-project-id");
+  const [userSession, setUserSession] = useState<UserSession | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isVotingModalOpen, setIsVotingModalOpen] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+
+  const [candidates, setCandidates] = useState<Candidate[]>(INITIAL_CANDIDATES);
+  const [settings, setSettings] = useState<PemiraSettings>(INITIAL_SETTINGS);
+  const [timelineSteps, setTimelineSteps] = useState<TimelineStep[]>(TIMELINE_DATA);
+  const [historyLeaders, setHistoryLeaders] = useState<HistoryLeader[]>(HISTORY_LEADERS);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(GALLERY_DATA);
+
+  // Auth Handlers
+  const handleLoginSuccess = (session: UserSession) => {
+    setUserSession(session);
+    if (session.role === 'admin') {
+      setIsAdminMode(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setUserSession(null);
+    setIsAdminMode(false);
+  };
+
+  // Open Voting Trigger
+  const handleOpenVotingTrigger = () => {
+    if (!userSession) {
+      setIsLoginModalOpen(true);
+      return;
+    }
+    setIsVotingModalOpen(true);
+  };
+
+  // Voting Vote Action Handler
+  const handleVoteCast = (kahimaId?: string, komtingId?: string) => {
+    setCandidates((prevCandidates) =>
+      prevCandidates.map((c) => {
+        if (c.id === kahimaId || c.id === komtingId) {
+          return { ...c, totalVotes: c.totalVotes + 1 };
+        }
+        return c;
+      })
+    );
+
+    if (userSession) {
+      setUserSession({
+        ...userSession,
+        hasVotedKahima: kahimaId ? true : userSession.hasVotedKahima,
+        hasVotedKomting: komtingId ? true : userSession.hasVotedKomting,
+        votedKahimaCandidateId: kahimaId || userSession.votedKahimaCandidateId,
+        votedKomtingCandidateId: komtingId || userSession.votedKomtingCandidateId,
+      });
+    }
+
+    // Increment settings
+    setSettings((prev) => ({
+      ...prev,
+      suaraMasukPercentage: Math.min(100, Number((prev.suaraMasukPercentage + 0.4).toFixed(1))),
+    }));
+  };
+
+  // Admin Actions for Independent Voting Sessions
+  const handleToggleKahimaVoting = () => {
+    setSettings((prev) => ({ ...prev, isKahimaVotingOpen: !prev.isKahimaVotingOpen }));
+  };
+
+  const handleToggleKomtingVoting = () => {
+    setSettings((prev) => ({ ...prev, isKomtingVotingOpen: !prev.isKomtingVotingOpen }));
+  };
+
+  const handleAddCandidate = (newCand: Candidate) => {
+    setCandidates((prev) => [...prev, newCand]);
+  };
+
+  const handleDeleteCandidate = (id: string) => {
+    setCandidates((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Admin Actions for Timeline Steps
+  const handleAddTimelineStep = (newStep: TimelineStep) => {
+    setTimelineSteps((prev) =>
+      [...prev, newStep].sort((a, b) => a.stepNumber - b.stepNumber)
+    );
+  };
+
+  const handleUpdateTimelineStep = (updatedStep: TimelineStep) => {
+    setTimelineSteps((prev) =>
+      prev.map((step) => (step.stepNumber === updatedStep.stepNumber ? updatedStep : step))
+    );
+  };
+
+  const handleDeleteTimelineStep = (stepNumber: number) => {
+    setTimelineSteps((prev) => prev.filter((step) => step.stepNumber !== stepNumber));
+  };
+
+  // Admin Actions for History Leaders
+  const handleAddHistoryLeader = (newLeader: HistoryLeader) => {
+    setHistoryLeaders((prev) => [newLeader, ...prev]);
+  };
+
+  const handleDeleteHistoryLeader = (id: string) => {
+    setHistoryLeaders((prev) => prev.filter((h) => h.id !== id));
+  };
+
+  // Admin Actions for Gallery Items
+  const handleAddGalleryItem = (newItem: GalleryItem) => {
+    setGalleryItems((prev) => [newItem, ...prev]);
+  };
+
+  const handleDeleteGalleryItem = (id: string) => {
+    setGalleryItems((prev) => prev.filter((g) => g.id !== id));
+  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col justify-center items-center p-6">
-      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900/80 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-8 md:p-10 space-y-8">
-        {/* Header */}
-        <div className="space-y-2 border-b border-zinc-200 dark:border-zinc-800 pb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            Next.js 16 + Supabase Ready
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-            E-Pemira System
-          </h1>
-          <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
-            Sistem Pemilihan Raya berbasis Next.js App Router &amp; Supabase (PostgreSQL).
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col font-sans bg-[#FAF7F5] text-[#212529]">
+      {/* Navigation Bar */}
+      <Header
+        userSession={userSession}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
+        onOpenVoting={handleOpenVotingTrigger}
+      />
 
-        {/* Database Status Card */}
-        <div className="rounded-xl border p-5 bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700/60 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Status Koneksi Supabase</span>
-            {isConfigured ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Terkonfigurasi
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                Menunggu Kredensial di .env.local
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {isConfigured
-              ? `Terhubung ke: ${supabaseUrl}`
-              : "Masukkan URL & Publishable Key dari Dashboard Supabase ke file .env.local."}
-          </p>
-        </div>
+      {/* Main Content Area: Admin View vs Student Landing View */}
+      {isAdminMode ? (
+        <main className="flex-grow">
+          <AdminDashboard
+            settings={settings}
+            candidates={candidates}
+            timelineSteps={timelineSteps}
+            historyLeaders={historyLeaders}
+            galleryItems={galleryItems}
+            onToggleKahimaVoting={handleToggleKahimaVoting}
+            onToggleKomtingVoting={handleToggleKomtingVoting}
+            onAddCandidate={handleAddCandidate}
+            onDeleteCandidate={handleDeleteCandidate}
+            onAddTimelineStep={handleAddTimelineStep}
+            onUpdateTimelineStep={handleUpdateTimelineStep}
+            onDeleteTimelineStep={handleDeleteTimelineStep}
+            onAddHistoryLeader={handleAddHistoryLeader}
+            onDeleteHistoryLeader={handleDeleteHistoryLeader}
+            onAddGalleryItem={handleAddGalleryItem}
+            onDeleteGalleryItem={handleDeleteGalleryItem}
+            onBackToUserView={handleLogout}
+          />
+        </main>
+      ) : (
+        <main className="flex-grow">
+          <HeroSection
+            onOpenVoting={handleOpenVotingTrigger}
+            settings={settings}
+          />
+          <TimelineSection steps={timelineSteps} />
+          <VotingGuideSection />
+          <HistorySection leaders={historyLeaders} />
+          <GallerySection items={galleryItems} />
+          <LiveCountSection
+            candidates={candidates}
+            settings={settings}
+            onOpenVoting={handleOpenVotingTrigger}
+          />
+        </main>
+      )}
 
-        {/* Architecture Checklist */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Standar Industri yang Telah Disiapkan:
-          </h2>
-          <ul className="text-sm space-y-2">
-            <li className="flex items-start gap-2.5">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>
-                <strong>Browser Client:</strong>{" "}
-                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                  @/lib/supabase/client
-                </code>{" "}
-                untuk Client Components (&quot;use client&quot;).
-              </span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>
-                <strong>Server Client:</strong>{" "}
-                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                  @/lib/supabase/server
-                </code>{" "}
-                untuk Server Actions &amp; RSC dengan cookie aman.
-              </span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>
-                <strong>Proxy Middleware (Next.js 16):</strong>{" "}
-                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                  src/proxy.ts
-                </code>{" "}
-                untuk auto refresh token auth di setiap request.
-              </span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>
-                <strong>Type Generation Script:</strong> Jalankan{" "}
-                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                  pnpm db:types
-                </code>{" "}
-                untuk sync schema PostgreSQL langsung ke TypeScript.
-              </span>
-            </li>
-          </ul>
-        </div>
+      {/* Footer */}
+      <Footer />
 
-        {/* Quick Links */}
-        <div className="pt-2 flex flex-wrap gap-3">
-          <Link
-            href="https://supabase.com/docs"
-            target="_blank"
-            className="text-xs font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 underline underline-offset-4"
-          >
-            Dokumentasi Supabase →
-          </Link>
-          <Link
-            href="https://nextjs.org/docs"
-            target="_blank"
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-4"
-          >
-            Dokumentasi Next.js →
-          </Link>
-        </div>
-      </div>
-    </main>
+      {/* Interactive Modals */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      <VotingModal
+        isOpen={isVotingModalOpen}
+        onClose={() => setIsVotingModalOpen(false)}
+        userSession={userSession}
+        candidates={candidates}
+        settings={settings}
+        onVoteCast={handleVoteCast}
+      />
+    </div>
   );
 }
